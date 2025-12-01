@@ -1,6 +1,6 @@
+import { unindent } from "@blakek/scratchpad";
 import * as Bun from "bun";
 import * as path from "path";
-import { unindent } from "./unindent";
 
 type PuzzleDay =
   | 1

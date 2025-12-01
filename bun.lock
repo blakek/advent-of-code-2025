@@ -4,8 +4,7 @@
     "": {
       "name": "advent-of-code-2024",
       "dependencies": {
-        "@blakek/compose": "^4.0.1",
-        "@blakek/partition": "^1.1.0",
+        "@blakek/scratchpad": "link:@blakek/scratchpad",
       },
       "devDependencies": {
         "@types/bun": "latest",
@@ -16,11 +15,7 @@
     },
   },
   "packages": {
-    "@blakek/compose": ["@blakek/compose@4.0.1", "", { "dependencies": { "@blakek/is-promise": "^1.0.0" } }, "sha512-FG1t6ITSIaumF40DKz98LHUUJYAeMUNtwYLTavwEaEaE29RVBnLcNRexNLobGLE08CAaM1VNKj/it6DSWw0AXw=="],
-
-    "@blakek/is-promise": ["@blakek/is-promise@1.0.0", "", {}, "sha512-UE/l0u51UK69m8FwmyYVdE3O1cRQU69lcVSEWK6gXJ3wqN+uXvk/BLqFV4XMtZF8hRO1pUHHGhKcMr5vQ7fDZg=="],
-
-    "@blakek/partition": ["@blakek/partition@1.1.0", "", {}, "sha512-UhmB/s89j4nTCJHpngDufP/eY/3J4/AkLdI8P7UNTrYGmZHweElXhRkIgH7twkl7d3Fgd0SXfmcbBeKx+fgyKQ=="],
+    "@blakek/scratchpad": ["@blakek/scratchpad@link:@blakek/scratchpad", {}],
 
     "@types/bun": ["@types/bun@1.3.3", "", { "dependencies": { "bun-types": "1.3.3" } }, "sha512-ogrKbJ2X5N0kWLLFKeytG0eHDleBYtngtlbu9cyBKFtNL3cnpDZkNdQj8flVf6WTZUX5ulI9AY1oa7ljhSrp+g=="],
 

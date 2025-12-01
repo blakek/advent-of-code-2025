@@ -8,8 +8,7 @@
   },
   "type": "module",
   "dependencies": {
-    "@blakek/compose": "^4.0.1",
-    "@blakek/partition": "^1.1.0"
+    "@blakek/scratchpad": "link:@blakek/scratchpad"
   },
   "private": true
 }
