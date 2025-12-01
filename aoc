@@ -267,9 +267,12 @@ get_run_command() {
 		return
 	fi
 
+	local input_file_path=""
+	input_file_path="$(get_input_file_path "${day}")"
+
 	case $language in
 		awk)
-			echo "awk -f ${language_dir}/main-${part}.awk $*"
+			echo "awk -f ${language_dir}/main-${part}.awk \"${input_file_path}\" $*"
 			;;
 		javascript | js)
 			echo "bun run ${language_dir}/main-${part}.js $*"
