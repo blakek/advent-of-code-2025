@@ -75,6 +75,3 @@ for (const line of input) {
 }
 
 console.log(`Result: ${timesVisited0}`);
-
-// 6698 is too low
-// Not 8951; unsure if it's too high or too low
