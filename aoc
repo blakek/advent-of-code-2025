@@ -1,0 +1,399 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+##
+# Advent of Code helper script
+##
+
+__dirname="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+version='2.0.0'
+year="2025"
+
+bold() {
+	echo -e "\033[1m$*\033[0m"
+}
+
+dim() {
+	echo -e "\033[2m$*\033[0m"
+}
+
+italic() {
+	echo -e "\033[3m$*\033[0m"
+}
+
+error() {
+	echo -e "\033[31m$*\033[0m" >&2
+}
+
+panic() {
+	error "$@"
+	exit 1
+}
+
+show_usage() {
+	cat <<-EOF
+		$(bold aoc) - Advent of Code helper
+
+		$(bold EXAMPLES)
+
+		Get help with this script:
+			$ ${0} help
+
+		Run a puzzle:
+			$ ${0} run  # Runs the latest puzzle using the first found language directory
+			$ ${0} run typescript  # Runs the latest puzzle in the typescript directory
+			$ ${0} run typescript --example  # Runs the latest puzzle in the typescript directory with the --example flag (if supported)
+			$ ${0} run awk 1 2  # Runs day 1, part 2 in the awk directory
+
+		Create directory, download instructions, and set up input file:
+			$ ${0} start  # Downloads the latest puzzle
+			$ ${0} start 24  # Downloads day 24
+
+		Submits a solution:
+			$ ${0} submit  # Submits the latest puzzle
+			$ ${0} submit 1 1  # Submits day 1, part 1
+
+		$(bold SUBCOMMANDS)
+
+		$(bold download) <input|instructions> $(dim [day])
+			Download the input or instructions for a puzzle.
+
+		$(bold run) $(dim [language] [day] [part] [-e\|--example])
+			Run a puzzle. If no arguments are provided, the latest puzzle is run.
+			If no language is provided, the first found language directory is used.
+			To override the language script, add a script named 'run.sh' to that language directory and it will be used instead.
+
+		$(bold start) $(dim [day])
+			Download the instructions for a puzzle, setting up the directory structure.
+
+		$(bold help \| --help)
+			Show this message.
+
+		$(bold session) $(dim [session])
+			Set or show the session cookie used for downloading puzzle input. You can get the session by:
+			1. Logging in to the Advent of Code website (https://adventofcode.com).
+			2. Opening the developer tools.
+			3. Going to the "Application" tab.
+			4. Copying the value of the "session" cookie.
+
+		$(bold submit) $(dim [day] [part])
+			Submit a solution for a puzzle.
+
+		$(bold version)
+			Show the version of this script.
+	EOF
+}
+
+show_version() {
+	echo "${version}"
+}
+
+get_config_dir() {
+	local config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/aoc"
+
+	if [[ ! -d ${config_dir} ]]; then
+		mkdir -p "${config_dir}" || panic "Could not create config directory: ${config_dir}"
+	fi
+
+	echo "${config_dir}"
+}
+
+get_session_file_path() {
+	local config_dir
+	config_dir="$(get_config_dir)"
+
+	if [[ ! -f "${config_dir}/session" ]]; then
+		touch "${config_dir}/session" || panic "Could not create session file: ${config_dir}/session"
+	fi
+
+	echo "${config_dir}/session"
+}
+
+get_session() {
+	local session_file_path
+	session_file_path="$(get_session_file_path)"
+
+	if [[ -f ${session_file_path} ]]; then
+		cat "${session_file_path}"
+	fi
+}
+
+set_session() {
+	local session="${1}"
+	local session_file_path
+	session_file_path="$(get_session_file_path)"
+
+	echo "${session}" >"${session_file_path}"
+}
+
+get_day_dir() {
+	local day_dir
+	day_dir="$(printf "%s/day-%02d" "${__dirname}" "${1}")"
+
+	if [[ ! -d ${day_dir} ]]; then
+		mkdir -p "${day_dir}" || panic "Could not create day directory: ${day_dir}"
+	fi
+
+	echo "${day_dir}"
+}
+
+get_input_file_path() {
+	local day_dir
+	day_dir="$(get_day_dir "${1}")"
+
+	echo "${day_dir}/input.txt"
+}
+
+get_instructions_file_path() {
+	local day_dir
+	day_dir="$(get_day_dir "${1}")"
+
+	echo "${day_dir}/instructions.md"
+}
+
+get_puzzle_url() {
+	local day="${1}"
+
+	printf "https://adventofcode.com/%d/day/%d" "${year}" "${day}"
+}
+
+fetch_puzzle() {
+	local type="${1?Type is required}"
+	local day="${2?Day is required}"
+
+	local puzzle_url
+	puzzle_url="$(get_puzzle_url "${day}")"
+
+	local url
+	local file_path
+
+	case ${type} in
+		input)
+			url="${puzzle_url}/input"
+			file_path="$(get_input_file_path "${day}")"
+			;;
+		instructions)
+			url="${puzzle_url}"
+			file_path="$(get_instructions_file_path "${day}")"
+			file_path="${file_path%.md}.html"
+			;;
+		*)
+			panic "Invalid type: ${type}"
+			;;
+	esac
+
+	local session
+	session="$(get_session)"
+
+	if [[ -z ${session} ]]; then
+		panic "Session cookie is required. Run 'aoc session <session>' to set it."
+	fi
+
+	local day_dir
+	day_dir="$(get_day_dir "${day}")"
+
+	curl -s -H "Cookie: session=${session}" "${url}" -o "${file_path}"
+
+	if [[ ${type} == "instructions" ]]; then
+		# Get only the part inside `<main>` and convert to markdown
+		sed -n '/<main>/,/<\/main>/p' "${file_path}" | pandoc -f html -t gfm -o "${file_path%.html}.md"
+		rm "${file_path}"
+	fi
+}
+
+post_submission() {
+	local day="${1-}"
+	local part="${2-}"
+
+	if [[ -z ${day} ]]; then
+		panic "Day is required"
+	fi
+
+	if [[ -z ${part} ]]; then
+		panic "Part is required"
+	fi
+
+	local input_file_path
+	input_file_path="$(get_input_file_path "${day}")"
+
+	if [[ ! -f ${input_file_path} ]]; then
+		panic "Input file does not exist: ${input_file_path}"
+	fi
+
+	local session
+	session="$(get_session)"
+
+	if [[ -z ${session} ]]; then
+		panic "Session cookie is required. Run 'aoc session <session>' to set it."
+	fi
+
+	local puzzle_url
+	puzzle_url="$(get_puzzle_url "${day}")"
+
+	local response
+	response="$(curl -s -H "Cookie: session=${session}" -X POST -F level="${part}" -F answer=@"${input_file_path}" "${puzzle_url}/answer")"
+
+	if [[ ${response} == *"That's the right answer!"* ]]; then
+		echo "Correct!"
+	elif [[ ${response} == *"That's not the right answer"* ]]; then
+		echo "Incorrect!"
+		echo "${response}"
+	else
+		panic "Unexpected response: ${response}"
+	fi
+}
+
+get_run_command() {
+	local language="${1?Language is required}"
+	local day="${2?Day is required}"
+	local part="${3?Part is required}"
+	shift 3
+
+	local day_dir
+	day_dir="$(get_day_dir "${day}")"
+
+	local language_dir="${day_dir}/${language}"
+
+	if [[ ! -d ${language_dir} ]]; then
+		panic "Language directory does not exist: ${language_dir}"
+	fi
+
+	local run_script="${language_dir}/run.sh"
+
+	if [[ -f ${run_script} ]]; then
+		echo "${run_script} ${day} ${part} $*"
+		return
+	fi
+
+	case $language in
+		awk)
+			echo "awk -f ${language_dir}/main-${part}.awk $*"
+			;;
+		javascript | js)
+			echo "bun run ${language_dir}/main-${part}.js $*"
+			;;
+		typescript | ts)
+			echo "bun run ${language_dir}/main-${part}.ts $*"
+			;;
+		*)
+			panic <<-EOF
+				Unsupported language: ${language}
+				You can either:
+				  - create a 'run.sh' script in the language directory to run the puzzle
+				  - update this script to support the language
+			EOF
+			;;
+	esac
+}
+
+main() {
+	# If we're in December before the 25th, default to the current year and day
+	local current_month
+	local current_day
+	local requested_day
+
+	current_month="$(date +%m)"
+	current_day="$(date +%d)"
+
+	if [[ ${current_month} -eq 12 && ${current_day} -lt 25 ]]; then
+		requested_day="${current_day}"
+	fi
+
+	local subcommand="${1-run}"
+	shift || true
+
+	case ${subcommand} in
+		download)
+			local type="${1-}"
+			local day="${2-${requested_day}}"
+
+			if [[ -z ${type} ]]; then
+				fetch_puzzle input "${day}"
+				fetch_puzzle instructions "${day}"
+			else
+				fetch_puzzle "${type}" "${day}"
+			fi
+			;;
+
+		run)
+			# Add all args after `--` to other_args
+			local other_args=()
+			local found_double_dash=false
+
+			for arg in "$@"; do
+				if [[ ${found_double_dash} == true ]]; then
+					other_args+=("${arg}")
+				elif [[ ${arg} == "--" ]]; then
+					found_double_dash=true
+				fi
+			done
+
+			local language="${1-}"
+			local day="${2-${requested_day}}"
+			local part="${3-1}"
+
+			if [[ -z ${language} ]]; then
+				local language_dir
+				language_dir="$(find "${__dirname}" -mindepth 1 -maxdepth 1 -type d | head -n1)"
+				language="$(basename "${language_dir}")"
+			fi
+
+			if [[ -z ${day} ]]; then
+				day="$(find "${__dirname}" -mindepth 1 -maxdepth 1 -type d | sort -r | head -n1 | sed 's/.*day-//')"
+			fi
+
+			local day_dir
+			day_dir="$(get_day_dir "${day}")"
+
+			local run_command
+			run_command="$(get_run_command "${language}" "${day}" "${part}" "${other_args[@]}")"
+
+			if [[ -z ${run_command} ]]; then
+				panic "Could not determine run command"
+			fi
+
+			bash -c "${run_command}"
+			;;
+		start)
+
+			if [[ ${current_month} -eq 12 && ${current_day} -lt 25 ]]; then
+				local day="${1:-${current_day}}"
+			else
+				local day="${1?Day is required since it\'s after December 25th}"
+			fi
+
+			fetch_puzzle instructions "${day}"
+			fetch_puzzle input "${day}"
+			;;
+		help | --help)
+			show_usage
+			;;
+		session)
+			local session="${1-}"
+
+			if [[ -z ${session} ]]; then
+				get_session
+			else
+				set_session "${session}"
+			fi
+			;;
+		submit)
+			post_submission "${@}"
+			;;
+		version)
+			show_version
+			exit
+			;;
+		*)
+			error "Invalid subcommand: ${subcommand}"
+			show_usage
+			exit 1
+			;;
+	esac
+}
+
+if [[ ${BASH_SOURCE[0]} == "${0}" ]]; then
+	main "${@}"
+fi
