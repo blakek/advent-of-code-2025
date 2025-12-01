@@ -57,9 +57,12 @@ function countZeroHits(current: number, change: number): number {
 /**
  * "Turns" the dial the given direction and returns the new state. Keeps the state between 0 and 99 inclusive.
  */
-function turn(amount: number): void {
-  state = (state + amount) % 100;
-  if (state < 0) state += 100;
+function turn(currentState: number, amount: number): number {
+  // Reduce to within -99 to 99
+  const distance = amount % 100;
+
+  // Wrap around using modulo to keep between 0 and 99
+  return (currentState + distance + 100) % 100;
 }
 
 // Current number
@@ -71,7 +74,7 @@ const input = await AOC.readInputLines(1);
 for (const line of input) {
   const instruction = parseInstruction(line);
   timesVisited0 += countZeroHits(state, instruction);
-  turn(instruction);
+  state = turn(state, instruction);
 }
 
 console.log(`Result: ${timesVisited0}`);

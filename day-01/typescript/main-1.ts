@@ -44,19 +44,12 @@ function parseInstruction(line: string): number {
 /**
  * "Turns" the dial the given direction and returns the new state. Keeps the state between 0 and 99 inclusive.
  */
-function turn(state: number, amount: number): number {
+function turn(currentState: number, amount: number): number {
   // Reduce to within -99 to 99
   const distance = amount % 100;
-  state += distance;
 
-  // Wrap around
-  if (state < 0) {
-    state += 100;
-  } else if (state >= 100) {
-    state -= 100;
-  }
-
-  return state;
+  // Wrap around using modulo to keep between 0 and 99
+  return (currentState + distance + 100) % 100;
 }
 
 // Current number
